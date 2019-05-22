@@ -75,6 +75,11 @@ class TestChineseDatasetReader(AllenNlpTestCase):
             instance1["text"]) == [t.text for t in fields["text"].tokens]
 
         assert instance1["spo_list"] == fields["spo_list"].field_list
-        assert set(['江山', '网游之最强时代', '创世中文网']) == set(fields["entities"].field_list)
+        assert set(['江山', '网游之最强时代',
+                    '创世中文网']) == set(fields["entities"].field_list)
 
         assert sorted(['连载网站', '作者']) == sorted(fields["relations"])
+        assert fields["bio"].labels == [
+            'O', 'B', 'I', 'I', 'I', 'I', 'I', 'I', 'O', 'O', 'B', 'I', 'I',
+            'I', 'I', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'B', 'I'
+        ]

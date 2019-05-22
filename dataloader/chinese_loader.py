@@ -6,12 +6,14 @@ from overrides import overrides
 
 from allennlp.common.file_utils import cached_path
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
-from allennlp.data.fields import LabelField, TextField, ListField, ArrayField
+from allennlp.data.fields import LabelField, TextField, ListField, ArrayField, SequenceLabelField
 from allennlp.data.instance import Instance
-from allennlp.data.tokenizers import Tokenizer, WordTokenizer, CharacterTokenizer
+from allennlp.data.tokenizers import Tokenizer, WordTokenizer, CharacterTokenizer, Token
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+
+# two seperate data reader for self-att network in ner setting
 
 
 @DatasetReader.register("chinese")
@@ -76,9 +78,8 @@ class ChineseDatasetReader(DatasetReader):
                          spo_list: List[Dict[str, str]] = None) -> Instance:
         # type: ignore
         # pylint: disable=arguments-differ
-        # tokenized_text = self._tokenizer.tokenize(text)
-        tokenized_text = self._tokenizer.tokenize(text)
 
+        tokenized_text = self._tokenizer.tokenize(text)
         text_field = TextField(tokenized_text, self._token_indexers)
         fields = {'text': text_field}
         # TODO allennlp.data.fields.array_field.ArrayField
@@ -87,12 +88,13 @@ class ChineseDatasetReader(DatasetReader):
         if spo_list is not None:
             entities: List[str] = self.spo_to_entities(text, spo_list)
             relations: List[str] = self.spo_to_relations(text, spo_list)
+            bio: List[str] = self.spo_to_bio(text, entities)
 
             fields['spo_list'] = ListField(spo_list)
             fields['entities'] = ListField(entities)
             fields['relations'] = ListField(relations)
 
-            fields['bio'] = None
+            fields['bio'] = SequenceLabelField(labels=bio, sequence_field=text_field)
             fields['selection'] = None
         return Instance(fields)
 
@@ -113,4 +115,14 @@ class ChineseDatasetReader(DatasetReader):
         return [t['predicate'] for t in spo_list]
 
     def spo_to_bio(self, text: str, entities: List[str]) -> List[str]:
-        pass
+        bio = ['O'] * len(text)
+        for e in entities:
+            begin = text.find(e)
+            end = begin + len(e) - 1
+
+            assert end <= len(text)
+
+            bio[begin] = 'B'
+            for i in range(begin + 1, end + 1):
+                bio[i] = 'I'
+        return bio
