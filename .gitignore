@@ -1,0 +1,6 @@
+.mypy_cache
+.pytest_cache
+.vscode
+raw_data
+tests/__pycache__
+dataloader/__pycache__
