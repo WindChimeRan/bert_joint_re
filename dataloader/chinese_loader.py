@@ -82,27 +82,35 @@ class ChineseDatasetReader(DatasetReader):
         tokenized_text = self._tokenizer.tokenize(text)
         text_field = TextField(tokenized_text, self._token_indexers)
         fields = {'text': text_field}
-        # TODO allennlp.data.fields.array_field.ArrayField
-        # TODO NER
+        # TODO allennlp.data.fields.array_field.ArrayField for multi-head-selection
 
         if spo_list is not None:
             entities: List[str] = self.spo_to_entities(text, spo_list)
             relations: List[str] = self.spo_to_relations(text, spo_list)
+
             bio: List[str] = self.spo_to_bio(text, entities)
 
-            fields['spo_list'] = ListField(spo_list)
-            fields['entities'] = ListField(entities)
-            fields['relations'] = ListField(relations)
+            # fields['spo_list'] = ListField(spo_list)
+            # fields['entities'] = ListField(entities)
+            # fields['relations'] = ListField(relations)
 
-            fields['bio'] = SequenceLabelField(labels=bio, sequence_field=text_field)
-            fields['selection'] = None
+            fields['bio'] = SequenceLabelField(labels=bio,
+                                               sequence_field=text_field)
+            # selection = self.spo_to_selection(text, spo_list)
+            # fields['selection'] = None
         return Instance(fields)
 
     def check_valid(self, text: str, spo_list: List[Dict[str, str]]) -> bool:
+        if spo_list == []:
+            return False
         for t in spo_list:
             if t['object'] not in text or t['subject'] not in text:
                 return False
         return True
+
+    def spo_to_selection(self, text: str, spo_list: List[Dict[str, str]]):
+        # TODO
+        return None
 
     def spo_to_entities(self, text: str,
                         spo_list: List[Dict[str, str]]) -> List[str]:
