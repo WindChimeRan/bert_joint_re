@@ -14,7 +14,7 @@ from allennlp.data.dataset_readers import DatasetReader
 from allennlp.common.file_utils import cached_path
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
 from allennlp.data.tokenizers import Token
-from allennlp.models import Model
+from allennlp.models import Model, crf_tagger
 from allennlp.modules.text_field_embedders import TextFieldEmbedder, BasicTextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
 from allennlp.modules.seq2seq_encoders import Seq2SeqEncoder, PytorchSeq2SeqWrapper
@@ -31,43 +31,46 @@ if __name__ == "__main__":
     test_dataset = reader.read('tests/fixtures/chinese_test_data.json')
 
     # vocab = Vocabulary.from_instances(train_dataset + validation_dataset)
-    vocab = Vocabulary.from_instances(validation_dataset)
+    # vocab = Vocabulary.from_instances(validation_dataset)
+    vocab = Vocabulary.from_instances(test_dataset)
 
-    EMBEDDING_DIM = 6
-    HIDDEN_DIM = 6
+    EMBEDDING_DIM = 200
+    HIDDEN_DIM = 300
     token_embedding = Embedding(num_embeddings=vocab.get_vocab_size('tokens'),
                                 embedding_dim=EMBEDDING_DIM)
     word_embeddings = BasicTextFieldEmbedder({"tokens": token_embedding})
+
     lstm = PytorchSeq2SeqWrapper(
         torch.nn.LSTM(EMBEDDING_DIM, HIDDEN_DIM, batch_first=True))
-    model = LstmTagger(word_embeddings, lstm, vocab)
+
+    # model = LstmTagger(word_embeddings, lstm, vocab)
+    model = crf_tagger.CrfTagger(vocab=vocab, encoder=lstm, text_field_embedder=word_embeddings)
     if torch.cuda.is_available():
         cuda_device = 0
         model = model.cuda(cuda_device)
     else:
         cuda_device = -1
-    optimizer = optim.SGD(model.parameters(), lr=0.1)
+    optimizer = optim.Adam(model.parameters())
     iterator = BucketIterator(batch_size=2,
-                              sorting_keys=[("text", "num_tokens")])
+                              sorting_keys=[("tokens", "num_tokens")])
     iterator.index_with(vocab)
     trainer = Trainer(model=model,
                       optimizer=optimizer,
                       iterator=iterator,
-                      train_dataset=validation_dataset,
-                      validation_dataset=validation_dataset,
-                      patience=10,
-                      num_epochs=15,
+                      train_dataset=test_dataset,
+                      validation_dataset=test_dataset,
+                      patience=5,
+                      num_epochs=10,
                       cuda_device=cuda_device)
 
     trainer.train()
-    predictor = ChineseSentenceTaggerPredictor(model, dataset_reader=reader)
-    tag_logits = predictor.predict("《网游之最强时代》是创世中文网连载的小说，作者是江山")['tag_logits']
-    tag_ids = np.argmax(tag_logits, axis=-1)
 
+
+    # evaluation
     sentence = "《网游之最强时代》是创世中文网连载的小说，作者是江山"
-    print(predictor._tokenizer.tokenize(sentence))
-    print(''.join(
-        [model.vocab.get_token_from_index(i, 'labels') for i in tag_ids]))
+    predictor = ChineseSentenceTaggerPredictor(model, dataset_reader=reader)
+    tags = predictor.predict("《网游之最强时代》是创世中文网连载的小说，作者是江山")['tags']
+    print(''.join(tags))
     print(''.join([
         'O', 'B', 'I', 'I', 'I', 'I', 'I', 'I', 'O', 'O', 'B', 'I', 'I', 'I',
         'I', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'B', 'I'

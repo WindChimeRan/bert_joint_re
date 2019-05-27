@@ -9,7 +9,7 @@ from allennlp.common.file_utils import cached_path
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
 from allennlp.data.tokenizers import Token
 from allennlp.data.vocabulary import Vocabulary
-from allennlp.models import Model
+from allennlp.models import Model, crf_tagger
 from allennlp.modules.text_field_embedders import TextFieldEmbedder, BasicTextFieldEmbedder
 from allennlp.modules.token_embedders import Embedding
 from allennlp.modules.seq2seq_encoders import Seq2SeqEncoder, PytorchSeq2SeqWrapper

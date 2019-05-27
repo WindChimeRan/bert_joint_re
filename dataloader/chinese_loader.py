@@ -81,7 +81,7 @@ class ChineseDatasetReader(DatasetReader):
 
         tokenized_text = self._tokenizer.tokenize(text)
         text_field = TextField(tokenized_text, self._token_indexers)
-        fields = {'text': text_field}
+        fields = {'tokens': text_field}
         # TODO allennlp.data.fields.array_field.ArrayField for multi-head-selection
 
         if spo_list is not None:
@@ -94,7 +94,7 @@ class ChineseDatasetReader(DatasetReader):
             # fields['entities'] = ListField(entities)
             # fields['relations'] = ListField(relations)
 
-            fields['bio'] = SequenceLabelField(labels=bio,
+            fields['tags'] = SequenceLabelField(labels=bio,
                                                sequence_field=text_field)
             # selection = self.spo_to_selection(text, spo_list)
             # fields['selection'] = None
