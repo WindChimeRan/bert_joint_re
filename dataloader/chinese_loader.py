@@ -6,7 +6,7 @@ from overrides import overrides
 
 from allennlp.common.file_utils import cached_path
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
-from allennlp.data.fields import LabelField, TextField, ListField, ArrayField, SequenceLabelField
+from allennlp.data.fields import LabelField, TextField, ListField, ArrayField, SequenceLabelField, MetadataField
 from allennlp.data.instance import Instance
 from allennlp.data.tokenizers import Tokenizer, WordTokenizer, CharacterTokenizer, Token
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
@@ -90,9 +90,9 @@ class ChineseDatasetReader(DatasetReader):
 
             bio: List[str] = self.spo_to_bio(text, entities)
 
-            # fields['spo_list'] = ListField(spo_list)
-            # fields['entities'] = ListField(entities)
-            # fields['relations'] = ListField(relations)
+            fields['spo_list'] = MetadataField(spo_list)
+            fields['entities'] = MetadataField(entities)
+            fields['relations'] = MetadataField(relations)
 
             fields['tags'] = SequenceLabelField(labels=bio,
                                                sequence_field=text_field)
