@@ -5,9 +5,12 @@ import os
 
 from overrides import overrides
 
+import torch
+import numpy as np
+
 from allennlp.common.file_utils import cached_path
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
-from allennlp.data.fields import LabelField, TextField, ListField, ArrayField, SequenceLabelField, MetadataField
+from allennlp.data.fields import LabelField, TextField, ListField, ArrayField, SequenceLabelField, MetadataField, SequenceField
 from allennlp.data.instance import Instance
 from allennlp.data.tokenizers import Tokenizer, WordTokenizer, CharacterTokenizer, Token
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
@@ -58,16 +61,8 @@ class ChineseDatasetReader(DatasetReader):
         }
 
 
-        schema_path = './raw_data/chinese/all_50_schemas'
-        self.relation_vocab = self.load_relation_vocab(schema_path)
-
-    def load_relation_vocab(self, path: str) -> Set[str]:
-        if not os.path.exists(path):
-            raise FileNotFoundError('file not found')
-        relation_vocab = set()
-        for line in open(path, 'r'):
-            relation_vocab.add(json.loads(line)['predicate'])
-        return relation_vocab
+        relation_vocab_path = './raw_data/chinese/relation_vocab.json'
+        self.relation_vocab = json.load(open(relation_vocab_path, 'r'))
 
     @overrides
     def _read(self, file_path):
@@ -109,8 +104,8 @@ class ChineseDatasetReader(DatasetReader):
 
             fields['tags'] = SequenceLabelField(labels=bio,
                                                 sequence_field=text_field)
-            # selection = self.spo_to_selection(text, spo_list)
-            # fields['selection'] = None
+            selection = self.spo_to_selection(text, spo_list)
+            fields['selection'] = ArrayField(array=selection)
         return Instance(fields)
 
     def check_valid(self, text: str, spo_list: List[Dict[str, str]]) -> bool:
@@ -121,10 +116,18 @@ class ChineseDatasetReader(DatasetReader):
                 return False
         return True
 
-    def spo_to_selection(self, text: str, spo_list: List[Dict[str, str]]):
-        # TODO
-        selection = [[0] * len(text) for _ in range(len(self.relation_vocab))]
-        return None
+    def spo_to_selection(self, text: str, spo_list: List[Dict[str, str]]) -> List[np.array]:
+        selection = np.zeros((len(text), len(self.relation_vocab), len(text)))
+        for triplet in spo_list:
+            object = triplet['object']
+            subject = triplet['subject']
+            object_pos  = text.find(object) + len(object) - 1
+            relation_pos = self.relation_vocab[triplet['predicate']]
+            subject_pos = text.find(subject) + len(subject) - 1
+
+            selection[object_pos, relation_pos, subject_pos] = 1
+
+        return selection
 
     def spo_to_entities(self, text: str,
                         spo_list: List[Dict[str, str]]) -> List[str]:

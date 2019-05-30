@@ -8,7 +8,6 @@ import os
 
 
 class TestChineseDatasetReader(AllenNlpTestCase):
-
     def setUp(self):
         super(TestChineseDatasetReader, self).setUp()
         self.reader = ChineseDatasetReader()
@@ -73,12 +72,13 @@ class TestChineseDatasetReader(AllenNlpTestCase):
     def test_read_from_file(self):
 
         fields = self.instances[0].fields
-        assert list(
-            self.instance1["text"]) == [t.text for t in fields["tokens"].tokens]
+        assert list(self.instance1["text"]) == [
+            t.text for t in fields["tokens"].tokens
+        ]
 
-        assert self.instance1["spo_list"] == fields["spo_list"].metadata 
+        assert self.instance1["spo_list"] == fields["spo_list"].metadata
         assert set(['江山', '网游之最强时代',
-                    '创世中文网']) == set(fields["entities"].metadata )
+                    '创世中文网']) == set(fields["entities"].metadata)
 
         assert sorted(['连载网站', '作者']) == sorted(fields["relations"].metadata)
 
@@ -88,4 +88,8 @@ class TestChineseDatasetReader(AllenNlpTestCase):
         ]
 
     def test_selection_labels(self):
+
+        fields = self.instances[0].fields
+
         assert len(self.reader.relation_vocab) == 49
+        assert fields["selection"].array.sum() == 2
