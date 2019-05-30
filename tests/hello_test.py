@@ -8,14 +8,13 @@ import os
 
 
 class TestChineseDatasetReader(AllenNlpTestCase):
-    def test_read_from_file(self):
 
-        reader = ChineseDatasetReader()
-        print(os.getcwd())
-        instances = ensure_list(
-            reader.read('tests/fixtures/chinese_test_data.json'))
-
-        instance1 = {
+    def setUp(self):
+        super(TestChineseDatasetReader, self).setUp()
+        self.reader = ChineseDatasetReader()
+        self.instances = ensure_list(
+            self.reader.read('tests/fixtures/chinese_test_data.json'))
+        self.instance1 = {
             "postag": [{
                 "word": "《",
                 "pos": "w"
@@ -69,17 +68,24 @@ class TestChineseDatasetReader(AllenNlpTestCase):
                 "subject": "网游之最强时代"
             }]
         }
+        print('setup!')
 
-        fields = instances[0].fields
+    def test_read_from_file(self):
+
+        fields = self.instances[0].fields
         assert list(
-            instance1["text"]) == [t.text for t in fields["text"].tokens]
+            self.instance1["text"]) == [t.text for t in fields["tokens"].tokens]
 
-        # assert instance1["spo_list"] == fields["spo_list"].field_list
-        # assert set(['江山', '网游之最强时代',
-        #             '创世中文网']) == set(fields["entities"].field_list)
+        assert self.instance1["spo_list"] == fields["spo_list"].metadata 
+        assert set(['江山', '网游之最强时代',
+                    '创世中文网']) == set(fields["entities"].metadata )
 
-        # assert sorted(['连载网站', '作者']) == sorted(fields["relations"])
-        assert fields["bio"].labels == [
+        assert sorted(['连载网站', '作者']) == sorted(fields["relations"].metadata)
+
+        assert fields["tags"].labels == [
             'O', 'B', 'I', 'I', 'I', 'I', 'I', 'I', 'O', 'O', 'B', 'I', 'I',
             'I', 'I', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'B', 'I'
         ]
+
+    def test_selection_labels(self):
+        assert len(self.reader.relation_vocab) == 49

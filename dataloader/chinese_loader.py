@@ -1,6 +1,7 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Set
 import json
 import logging
+import os
 
 from overrides import overrides
 
@@ -56,6 +57,18 @@ class ChineseDatasetReader(DatasetReader):
             "tokens": SingleIdTokenIndexer()
         }
 
+
+        schema_path = './raw_data/chinese/all_50_schemas'
+        self.relation_vocab = self.load_relation_vocab(schema_path)
+
+    def load_relation_vocab(self, path: str) -> Set[str]:
+        if not os.path.exists(path):
+            raise FileNotFoundError('file not found')
+        relation_vocab = set()
+        for line in open(path, 'r'):
+            relation_vocab.add(json.loads(line)['predicate'])
+        return relation_vocab
+
     @overrides
     def _read(self, file_path):
         with open(cached_path(file_path), "r") as data_file:
@@ -95,7 +108,7 @@ class ChineseDatasetReader(DatasetReader):
             fields['relations'] = MetadataField(relations)
 
             fields['tags'] = SequenceLabelField(labels=bio,
-                                               sequence_field=text_field)
+                                                sequence_field=text_field)
             # selection = self.spo_to_selection(text, spo_list)
             # fields['selection'] = None
         return Instance(fields)
@@ -110,6 +123,7 @@ class ChineseDatasetReader(DatasetReader):
 
     def spo_to_selection(self, text: str, spo_list: List[Dict[str, str]]):
         # TODO
+        selection = [[0] * len(text) for _ in range(len(self.relation_vocab))]
         return None
 
     def spo_to_entities(self, text: str,
