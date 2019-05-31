@@ -8,6 +8,10 @@ if __name__ == "__main__":
     if not os.path.exists(schema_path):
         raise FileNotFoundError('file not found')
     relation_vocab = {}
-    for i, line in enumerate(open(schema_path, 'r')):
-        relation_vocab[json.loads(line)['predicate']] = i
+    i = 0
+    for line in open(schema_path, 'r'):
+        relation = json.loads(line)['predicate']
+        if relation not in relation_vocab:
+            relation_vocab[relation] = i
+            i += 1
     json.dump(relation_vocab, open(relation_vocab_path, 'w'), ensure_ascii=False)

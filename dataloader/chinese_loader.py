@@ -10,7 +10,7 @@ import numpy as np
 
 from allennlp.common.file_utils import cached_path
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
-from allennlp.data.fields import LabelField, TextField, ListField, ArrayField, SequenceLabelField, MetadataField, SequenceField
+from allennlp.data.fields import LabelField, TextField, ListField, ArrayField, SequenceLabelField, MetadataField, MultiLabelField
 from allennlp.data.instance import Instance
 from allennlp.data.tokenizers import Tokenizer, WordTokenizer, CharacterTokenizer, Token
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
@@ -100,7 +100,7 @@ class ChineseDatasetReader(DatasetReader):
 
             fields['spo_list'] = MetadataField(spo_list)
             fields['entities'] = MetadataField(entities)
-            fields['relations'] = MetadataField(relations)
+            fields['relations'] = MultiLabelField(relations)
 
             fields['tags'] = SequenceLabelField(labels=bio,
                                                 sequence_field=text_field)

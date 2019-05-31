@@ -1,5 +1,5 @@
 from dataloader import ChineseDatasetReader
-from models import LstmTagger, ChineseSentenceTaggerPredictor
+from models import LstmTagger, MultiHeadSelection, ChineseSentenceTaggerPredictor
 from allennlp.data.vocabulary import Vocabulary
 
 from typing import Iterator, List, Dict
@@ -44,7 +44,8 @@ if __name__ == "__main__":
         torch.nn.LSTM(EMBEDDING_DIM, HIDDEN_DIM, batch_first=True))
 
     # model = LstmTagger(word_embeddings, lstm, vocab)
-    model = crf_tagger.CrfTagger(vocab=vocab, encoder=lstm, text_field_embedder=word_embeddings)
+    model = MultiHeadSelection(word_embeddings, lstm, vocab)
+    # model = crf_tagger.CrfTagger(vocab=vocab, encoder=lstm, text_field_embedder=word_embeddings)
     if torch.cuda.is_available():
         cuda_device = 0
         model = model.cuda(cuda_device)
@@ -54,6 +55,7 @@ if __name__ == "__main__":
     iterator = BucketIterator(batch_size=2,
                               sorting_keys=[("tokens", "num_tokens")])
     iterator.index_with(vocab)
+
     trainer = Trainer(model=model,
                       optimizer=optimizer,
                       iterator=iterator,
@@ -69,7 +71,8 @@ if __name__ == "__main__":
     # evaluation
     sentence = "《网游之最强时代》是创世中文网连载的小说，作者是江山"
     predictor = ChineseSentenceTaggerPredictor(model, dataset_reader=reader)
-    tags = predictor.predict("《网游之最强时代》是创世中文网连载的小说，作者是江山")['tags']
+    tags = predictor.predict("《网游之最强时代》是创世中文网连载的小说，作者是江山")['span_tags']
+    print('*'*30)
     print(''.join(tags))
     print(''.join([
         'O', 'B', 'I', 'I', 'I', 'I', 'I', 'I', 'O', 'O', 'B', 'I', 'I', 'I',

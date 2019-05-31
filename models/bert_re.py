@@ -1,4 +1,4 @@
-from typing import Iterator, List, Dict
+from typing import Iterator, List, Dict, Any
 import torch
 import torch.optim as optim
 import numpy as np
@@ -26,6 +26,66 @@ from allennlp.data import DatasetReader, Instance
 from allennlp.data.tokenizers.word_splitter import SpacyWordSplitter
 from allennlp.models import Model
 from allennlp.predictors.predictor import Predictor
+
+
+# TODO: rewrite crf? for computing efficiency.
+class MultiHeadSelection(Model):
+    def __init__(self,
+                 word_embeddings: TextFieldEmbedder,
+                 encoder: Seq2SeqEncoder,
+                 vocab: Vocabulary,
+                 tagger: Model = crf_tagger.CrfTagger) -> None:
+        super().__init__(vocab)
+        # TODO
+        self.word_embeddings = word_embeddings
+        self.encoder = encoder
+        self.tagger = tagger(vocab=vocab,
+                             encoder=self.encoder,
+                             text_field_embedder=self.word_embeddings)
+        # self.relation_emb = torch.nn.Embedding(vocab.get_vocab_size('relations'), 200)
+        self.relation_emb = Embedding(
+            num_embeddings=vocab.get_vocab_size('relations'),
+            embedding_dim=200)
+
+    @overrides
+    def forward(
+            self,  # type: ignore
+            tokens: Dict[str, torch.LongTensor],
+            tags: torch.LongTensor = None,
+            selection: torch.LongTensor = None,
+            metadata: List[Dict[str, Any]] = None,
+            # pylint: disable=unused-argument
+            **kwargs) -> Dict[str, torch.Tensor]:
+        # pylint: disable=arguments-differ
+        mask = get_text_field_mask(tokens)
+        encoded_text = self.encoder(self.word_embeddings(tokens), mask)
+
+        output = {}
+
+        if tags is not None:
+            span_dict = self.tagger(tokens, tags)
+            span_loss = span_dict['loss']
+            output['loss'] = span_loss
+        else:
+            span_dict = self.tagger(tokens)
+        
+        span_dict = self.tagger.decode(span_dict)
+        output['span_tags'] = span_dict['tags'] 
+        
+        span_tags = span_dict['tags']
+        selection_dict = {}
+        if selection is not None:
+            selection_loss = 0
+            selection_dict['loss'] = selection_loss
+            if 'loss' in output:
+                output['loss'] += selection_loss
+            else:
+                output['loss'] = selection_loss
+        
+        return output
+        
+        
+
 
 
 class LstmTagger(Model):
@@ -84,5 +144,5 @@ class ChineseSentenceTaggerPredictor(Predictor):
         Runs the underlying model, and adds the ``"words"`` to the output.
         """
         sentence = json_dict["sentence"]
-        
+
         return self._dataset_reader.text_to_instance(sentence)
