@@ -100,7 +100,7 @@ class ChineseDatasetReader(DatasetReader):
 
             fields['spo_list'] = MetadataField(spo_list)
             fields['entities'] = MetadataField(entities)
-            fields['relations'] = MultiLabelField(relations)
+            fields['relations'] = MetadataField(relations)
 
             fields['tags'] = SequenceLabelField(labels=bio,
                                                 sequence_field=text_field)

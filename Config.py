@@ -8,6 +8,9 @@ from collections import defaultdict
 import torch
 import torch.optim as optim
 import numpy as np
+
+import json
+
 from allennlp.data import Instance
 from allennlp.data.fields import TextField, SequenceLabelField
 from allennlp.data.dataset_readers import DatasetReader
@@ -24,6 +27,17 @@ from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
 from allennlp.predictors import SentenceTaggerPredictor
 
+
+class Config(object):
+    def __init__(self):
+        relation_vocab_path = './raw_data/chinese/relation_vocab.json'
+
+        self.hidden_dim = 300
+        self.relation_vocab = json.load(open(relation_vocab_path, 'r'))
+        self.relation_num = len(self.relation_vocab)
+
+        self.binary_threshold = 0.6
+
 if __name__ == "__main__":
     reader = ChineseDatasetReader()
     # train_dataset = reader.read('raw_data/chinese/train_data.json')
@@ -33,6 +47,8 @@ if __name__ == "__main__":
     # vocab = Vocabulary.from_instances(train_dataset + validation_dataset)
     # vocab = Vocabulary.from_instances(validation_dataset)
     vocab = Vocabulary.from_instances(test_dataset)
+
+    config = Config()
 
     EMBEDDING_DIM = 200
     HIDDEN_DIM = 300
@@ -44,7 +60,7 @@ if __name__ == "__main__":
         torch.nn.LSTM(EMBEDDING_DIM, HIDDEN_DIM, batch_first=True))
 
     # model = LstmTagger(word_embeddings, lstm, vocab)
-    model = MultiHeadSelection(word_embeddings, lstm, vocab)
+    model = MultiHeadSelection(config, word_embeddings, lstm, vocab)
     # model = crf_tagger.CrfTagger(vocab=vocab, encoder=lstm, text_field_embedder=word_embeddings)
     if torch.cuda.is_available():
         cuda_device = 0
@@ -67,12 +83,12 @@ if __name__ == "__main__":
 
     trainer.train()
 
-
     # evaluation
     sentence = "《网游之最强时代》是创世中文网连载的小说，作者是江山"
     predictor = ChineseSentenceTaggerPredictor(model, dataset_reader=reader)
     tags = predictor.predict("《网游之最强时代》是创世中文网连载的小说，作者是江山")['span_tags']
-    print('*'*30)
+    print('*' * 30)
+    # print(tags)
     print(''.join(tags))
     print(''.join([
         'O', 'B', 'I', 'I', 'I', 'I', 'I', 'I', 'O', 'O', 'B', 'I', 'I', 'I',

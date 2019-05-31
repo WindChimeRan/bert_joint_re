@@ -80,7 +80,7 @@ class TestChineseDatasetReader(AllenNlpTestCase):
         assert set(['江山', '网游之最强时代',
                     '创世中文网']) == set(fields["entities"].metadata)
 
-        assert sorted(['连载网站', '作者']) == sorted(fields["relations"].labels)
+        assert sorted(['连载网站', '作者']) == sorted(fields["relations"].metadata)
 
         assert fields["tags"].labels == [
             'O', 'B', 'I', 'I', 'I', 'I', 'I', 'I', 'O', 'O', 'B', 'I', 'I',
