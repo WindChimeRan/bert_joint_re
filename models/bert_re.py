@@ -33,7 +33,7 @@ from allennlp.predictors.predictor import Predictor
 # TODO: rewrite crf? for computing efficiency.
 class MultiHeadSelection(Model):
     def __init__(self,
-                 config, 
+                 config,
                  word_embeddings: TextFieldEmbedder,
                  encoder: Seq2SeqEncoder,
                  vocab: Vocabulary,
@@ -47,15 +47,24 @@ class MultiHeadSelection(Model):
                              encoder=self.encoder,
                              text_field_embedder=self.word_embeddings)
         # self.relation_emb = torch.nn.Embedding(vocab.get_vocab_size('relations'), 200)
-        self.relation_emb = Embedding(
-            num_embeddings=config.relation_num,
-            embedding_dim=config.hidden_dim)
+        self.relation_emb = Embedding(num_embeddings=config.relation_num,
+                                      embedding_dim=config.hidden_dim)
 
         self.selection_u = nn.Linear(config.hidden_dim, config.hidden_dim)
         self.selection_v = nn.Linear(config.hidden_dim, config.hidden_dim)
         self.selection_uv = nn.Linear(config.hidden_dim, config.hidden_dim)
 
         self.selection_loss = nn.BCEWithLogitsLoss()
+
+    def inference(self, tokens, span_dict, selection_logits, output):
+        span_dict = self.tagger.decode(span_dict)
+        output['span_tags'] = span_dict['tags']
+
+        selection_tags = torch.sigmoid(
+            selection_logits) > self.config.binary_threshold
+        self.selection_decode(tokens, span_dict['tags'], selection_tags)
+
+        return output
 
     @overrides
     def forward(
@@ -79,23 +88,18 @@ class MultiHeadSelection(Model):
             output['loss'] = span_loss
         else:
             span_dict = self.tagger(tokens)
-        
-        # decode for sequence labeling layers, for training and inference
-        span_dict = self.tagger.decode(span_dict)
-        output['span_tags'] = span_dict['tags'] 
-        span_tags = span_dict['tags']
 
         # forward multi head selection
         u = torch.tanh(self.selection_u(encoded_text)).unsqueeze(1)
         v = torch.tanh(self.selection_v(encoded_text)).unsqueeze(2)
-        uv = torch.tanh(self.selection_uv(u+v))
-        selection_logits = torch.einsum('bijh,rh->birj', uv, self.relation_emb.weight)
+        uv = torch.tanh(self.selection_uv(u + v))
+        selection_logits = torch.einsum('bijh,rh->birj', uv,
+                                        self.relation_emb.weight)
 
-        selection_tags = torch.sigmoid(selection_logits) > self.config.binary_threshold
-        self.selection_decode(selection_tags)
-        exit()
+        # if inference
+        output = self.inference(tokens, span_dict, selection_logits, output)
 
-        selection_dict = {'selection_tags': selection_tags}
+        selection_dict = {}
         if selection is not None:
             selection_loss = self.selection_loss(selection_logits, selection)
             selection_dict['loss'] = selection_loss
@@ -103,17 +107,44 @@ class MultiHeadSelection(Model):
                 output['loss'] += selection_loss
             else:
                 output['loss'] = selection_loss
-        
-        return output
-    
-    def selection_decode(self, selection_tags: torch.Tensor) -> Set[Dict[str, str]]:
-        selection_tags[1,0,1,1] = 1
-        print(selection_tags)
-        a = torch.nonzero(selection_tags)
-        print(a)
-        
-        
 
+        return output
+
+    def selection_decode(self, tokens, sequence_tags,
+                         selection_tags: torch.Tensor
+                         ) -> List[Set[Dict[str, str]]]:
+        selection_tags[1, 0, 1, 1] = 1
+        selection_tags[1, 0, 1, 0] = 1
+        # temp
+
+        text = [[
+            self.vocab.get_token_from_index(token,
+                                            namespace='tokens')
+            for token in instance_token
+        ] for instance_token in tokens['tokens'].tolist()]
+
+        print(text)
+
+        def find_entity(pos, text, sequence_tags):
+            entity = []
+            if sequence_tags[pos] in ('B', 'O'):
+                entity.append(text[pos])
+            else:
+                # TODO
+                pass
+            return ''.join(entity)
+
+        batch_num = len(sequence_tags)
+        result = [set() for _ in range(batch_num)]
+        idx = torch.nonzero(selection_tags.cpu())
+        for i in range(idx.size(0)):
+            b, o, p, s = idx[i]
+            print(idx[i])
+        print(sequence_tags)
+
+        exit()
+
+        return result
 
 
 class LstmTagger(Model):
