@@ -1,5 +1,5 @@
-from dataloader import ChineseDatasetReader
-from models import LstmTagger, MultiHeadSelection, ChineseSentenceTaggerPredictor
+from lib.dataloader import ChineseDatasetReader
+from lib.models import LstmTagger, MultiHeadSelection, ChineseSentenceTaggerPredictor
 from allennlp.data.vocabulary import Vocabulary
 
 from typing import Iterator, List, Dict
@@ -41,13 +41,15 @@ class Config(object):
 
 if __name__ == "__main__":
     reader = ChineseDatasetReader()
-    # train_dataset = reader.read('raw_data/chinese/train_data.json')
+    train_dataset = reader.read('raw_data/chinese/train_data.json')
     validation_dataset = reader.read('raw_data/chinese/dev_data.json')
     test_dataset = reader.read('tests/fixtures/chinese_test_data.json')
 
-    # vocab = Vocabulary.from_instances(train_dataset + validation_dataset)
+    vocab = Vocabulary.from_instances(train_dataset, min_count={'token': 10})
+    print('vocab_size: %d' % vocab.get_vocab_size())
+    
     # vocab = Vocabulary.from_instances(validation_dataset)
-    vocab = Vocabulary.from_instances(test_dataset)
+    # vocab = Vocabulary.from_instances(test_dataset)
 
     config = Config()
 
@@ -69,15 +71,15 @@ if __name__ == "__main__":
     else:
         cuda_device = -1
     optimizer = optim.Adam(model.parameters())
-    iterator = BucketIterator(batch_size=2,
+    iterator = BucketIterator(batch_size=200,
                               sorting_keys=[("tokens", "num_tokens")])
     iterator.index_with(vocab)
 
     trainer = Trainer(model=model,
                       optimizer=optimizer,
                       iterator=iterator,
-                      train_dataset=test_dataset,
-                      validation_dataset=test_dataset,
+                      train_dataset=train_dataset,
+                      validation_dataset=validation_dataset,
                       patience=5,
                       num_epochs=10,
                       cuda_device=cuda_device)

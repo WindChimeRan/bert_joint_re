@@ -2,7 +2,7 @@
 from allennlp.common.testing import AllenNlpTestCase
 from allennlp.common.util import ensure_list
 
-from dataloader import ChineseDatasetReader
+from lib.dataloader import ChineseDatasetReader
 
 import os
 
