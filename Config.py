@@ -88,6 +88,7 @@ if __name__ == "__main__":
     sentence = "《网游之最强时代》是创世中文网连载的小说，作者是江山"
     predictor = ChineseSentenceTaggerPredictor(model, dataset_reader=reader)
     tags = predictor.predict("《网游之最强时代》是创世中文网连载的小说，作者是江山")['span_tags']
+    selection_triplet = predictor.predict("《网游之最强时代》是创世中文网连载的小说，作者是江山")['selection_triplets']
     print('*' * 30)
     # print(tags)
     print(''.join(tags))
@@ -95,3 +96,5 @@ if __name__ == "__main__":
         'O', 'B', 'I', 'I', 'I', 'I', 'I', 'I', 'O', 'O', 'B', 'I', 'I', 'I',
         'I', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'B', 'I'
     ]))
+
+    print(selection_triplet)

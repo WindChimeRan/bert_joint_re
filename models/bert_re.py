@@ -62,7 +62,7 @@ class MultiHeadSelection(Model):
 
         selection_tags = torch.sigmoid(
             selection_logits) > self.config.binary_threshold
-        self.selection_decode(tokens, span_dict['tags'], selection_tags)
+        output['selection_triplets'] = self.selection_decode(tokens, span_dict['tags'], selection_tags)
 
         return output
 
