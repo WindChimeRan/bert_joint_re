@@ -34,6 +34,7 @@ class Config(object):
 
         self.hidden_dim = 300
         self.relation_vocab = json.load(open(relation_vocab_path, 'r'))
+        self.relation_vocab_from_idx = {v: k for k, v in self.relation_vocab.items()}
         self.relation_num = len(self.relation_vocab)
 
         self.binary_threshold = 0.6

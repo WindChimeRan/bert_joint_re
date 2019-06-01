@@ -113,8 +113,7 @@ class MultiHeadSelection(Model):
     def selection_decode(self, tokens, sequence_tags,
                          selection_tags: torch.Tensor
                          ) -> List[Set[Dict[str, str]]]:
-        selection_tags[1, 0, 1, 1] = 1
-        selection_tags[1, 0, 1, 0] = 1
+        selection_tags[0, 0, 1, 1] = 1
         # temp
 
         text = [[
@@ -123,27 +122,34 @@ class MultiHeadSelection(Model):
             for token in instance_token
         ] for instance_token in tokens['tokens'].tolist()]
 
-        print(text)
-
         def find_entity(pos, text, sequence_tags):
             entity = []
             if sequence_tags[pos] in ('B', 'O'):
                 entity.append(text[pos])
             else:
-                # TODO
-                pass
+                temp_entity = []
+                while sequence_tags[pos] == 'I':
+                    temp_entity.append(text[pos])
+                    pos -= 1
+                    if pos < 0:
+                        break
+                    if sequence_tags[pos] == 'B':
+                        temp_entity.append(text[pos])
+                        break
+                entity = list(reversed(temp_entity))
             return ''.join(entity)
 
         batch_num = len(sequence_tags)
-        result = [set() for _ in range(batch_num)]
+        result = [[] for _ in range(batch_num)]
         idx = torch.nonzero(selection_tags.cpu())
         for i in range(idx.size(0)):
-            b, o, p, s = idx[i]
-            print(idx[i])
-        print(sequence_tags)
+            b, o, p, s = idx[i].tolist()
+            object = find_entity(o, text[b], sequence_tags[b])
+            subject = find_entity(s, text[b], sequence_tags[b])
+            predicate = self.config.relation_vocab_from_idx[p]
 
-        exit()
-
+            triplet = {'object': object, 'predicate': predicate, 'subject': subject}
+            result[b].append(triplet)
         return result
 
 
