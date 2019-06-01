@@ -3,6 +3,6 @@
 .vscode
 raw_data
 tests/__pycache__
-dataloader/__pycache__
-models/__pycache__
+lib/dataloader/__pycache__
+lib/models/__pycache__
 saved_models/*
