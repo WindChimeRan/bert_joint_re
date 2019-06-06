@@ -111,6 +111,8 @@ class ChineseDatasetReader(DatasetReader):
     def check_valid(self, text: str, spo_list: List[Dict[str, str]]) -> bool:
         if spo_list == []:
             return False
+        if len(text)> 100:
+            return False
         for t in spo_list:
             if t['object'] not in text or t['subject'] not in text:
                 return False

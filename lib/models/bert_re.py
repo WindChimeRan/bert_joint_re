@@ -1,9 +1,14 @@
-from typing import Iterator, List, Dict, Any, Set
+from typing import Iterator, List, Dict, Any, Set, Optional
+from overrides import overrides
+
+from lib.metrics import F1Selection
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
+
 from allennlp.data import Instance
 from allennlp.data.fields import TextField, SequenceLabelField
 from allennlp.data.dataset_readers import DatasetReader
@@ -20,15 +25,14 @@ from allennlp.training.metrics import CategoricalAccuracy
 from allennlp.data.iterators import BucketIterator
 from allennlp.training.trainer import Trainer
 from allennlp.predictors import SentenceTaggerPredictor
-
-from overrides import overrides
-
 from allennlp.common.util import JsonDict
 from allennlp.data import DatasetReader, Instance
 from allennlp.data.tokenizers.word_splitter import SpacyWordSplitter
 from allennlp.models import Model
 from allennlp.predictors.predictor import Predictor
 
+# from lib.models.gpu_mem_track import MemTracker
+# import inspect
 
 # TODO: rewrite crf? for computing efficiency.
 class MultiHeadSelection(Model):
@@ -48,13 +52,15 @@ class MultiHeadSelection(Model):
                              text_field_embedder=self.word_embeddings)
         # self.relation_emb = torch.nn.Embedding(vocab.get_vocab_size('relations'), 200)
         self.relation_emb = Embedding(num_embeddings=config.relation_num,
-                                      embedding_dim=config.hidden_dim)
+                                      embedding_dim=50)
 
-        self.selection_u = nn.Linear(config.hidden_dim, config.hidden_dim)
-        self.selection_v = nn.Linear(config.hidden_dim, config.hidden_dim)
-        self.selection_uv = nn.Linear(config.hidden_dim, config.hidden_dim)
+        self.selection_u = nn.Linear(config.hidden_dim, 50)
+        self.selection_v = nn.Linear(config.hidden_dim, 50)
+        self.selection_uv = nn.Linear(100, 50)
 
         self.selection_loss = nn.BCEWithLogitsLoss()
+
+        self.accuracy = F1Selection()
 
     def inference(self, tokens, span_dict, selection_logits, output):
         span_dict = self.tagger.decode(span_dict)
@@ -72,47 +78,78 @@ class MultiHeadSelection(Model):
             tokens: Dict[str, torch.LongTensor],
             tags: torch.LongTensor = None,
             selection: torch.FloatTensor = None,
-            metadata: List[Dict[str, Any]] = None,
+            spo_list: Optional[List[Dict[str, str]]] = None,
             # pylint: disable=unused-argument
             **kwargs) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
+
+        # print(tokens['tokens'].size())
+        # print(tags.size())
+        # print(selection.size())
+        # print(tokens['tokens'].type())
+        # exit()
+        # if type(tokens) == torch.Tensor:
+        #     tokens = {'tokens': tokens}
+
+
+        # frame = inspect.currentframe()          # define a frame to track
+        # gpu_tracker = MemTracker(frame)         # define a GPU tracker
 
         mask = get_text_field_mask(tokens)
         encoded_text = self.encoder(self.word_embeddings(tokens), mask)
 
         output = {}
 
+        # gpu_tracker.track()                     # run function between the code line where uses GPU
+
         if tags is not None:
             span_dict = self.tagger(tokens, tags)
             span_loss = span_dict['loss']
-            output['loss'] = span_loss
+            # output['loss'] = span_loss
         else:
             span_dict = self.tagger(tokens)
+            span_loss = 0
+
+        # gpu_tracker.track()                     # run function between the code line where uses GPU
+
 
         # forward multi head selection
         u = torch.tanh(self.selection_u(encoded_text)).unsqueeze(1)
         v = torch.tanh(self.selection_v(encoded_text)).unsqueeze(2)
-        uv = torch.tanh(self.selection_uv(u + v))
+        u = u + torch.zeros_like(v)
+        v = v + torch.zeros_like(u)
+        uv = torch.tanh(self.selection_uv(torch.cat((u, v), dim=-1)))
         selection_logits = torch.einsum('bijh,rh->birj', uv,
                                         self.relation_emb.weight)
 
+        # gpu_tracker.track()                     # run function between the code line where uses GPU
+
+
         # if inference
         output = self.inference(tokens, span_dict, selection_logits, output)
+        self.accuracy(output['selection_triplets'], spo_list)
+        # gpu_tracker.track()                     # run function between the code line where uses GPU
+
 
         selection_dict = {}
         if selection is not None:
             selection_loss = self.selection_loss(selection_logits, selection)
             selection_dict['loss'] = selection_loss
-            if 'loss' in output:
-                output['loss'] += selection_loss
-            else:
-                output['loss'] = selection_loss
+            output['loss'] = span_loss + selection_loss
+            # if 'loss' in output:
+            #     output['loss'] += selection_loss
+            # else:
+            #     output['loss'] = selection_loss
+        # gpu_tracker.track()                     # run function between the code line where uses GPU
+        # torch.cuda.empty_cache()
 
+        # gpu_tracker.track()
+        # exit()
         return output
 
     def selection_decode(self, tokens, sequence_tags,
                          selection_tags: torch.Tensor
-                         ) -> List[Set[Dict[str, str]]]:
+                         ) -> List[List[Dict[str, str]]]:
         selection_tags[0, 0, 1, 1] = 1
         # temp
 
@@ -124,6 +161,10 @@ class MultiHeadSelection(Model):
 
         def find_entity(pos, text, sequence_tags):
             entity = []
+
+            if len(sequence_tags) < len(text):
+                return 'NA'
+
             if sequence_tags[pos] in ('B', 'O'):
                 entity.append(text[pos])
             else:
@@ -147,10 +188,13 @@ class MultiHeadSelection(Model):
             object = find_entity(o, text[b], sequence_tags[b])
             subject = find_entity(s, text[b], sequence_tags[b])
             predicate = self.config.relation_vocab_from_idx[p]
-
-            triplet = {'object': object, 'predicate': predicate, 'subject': subject}
-            result[b].append(triplet)
+            if object != 'NA' and subject != 'NA':
+                triplet = {'object': object, 'predicate': predicate, 'subject': subject}
+                result[b].append(triplet)
         return result
+
+    def get_metrics(self, reset: bool = False) -> Dict[str, float]:
+        return self.accuracy.get_metric(reset)
 
 
 class LstmTagger(Model):

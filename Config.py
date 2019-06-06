@@ -34,10 +34,14 @@ class Config(object):
 
         self.hidden_dim = 300
         self.relation_vocab = json.load(open(relation_vocab_path, 'r'))
-        self.relation_vocab_from_idx = {v: k for k, v in self.relation_vocab.items()}
+        self.relation_vocab_from_idx = {
+            v: k
+            for k, v in self.relation_vocab.items()
+        }
         self.relation_num = len(self.relation_vocab)
 
         self.binary_threshold = 0.6
+
 
 if __name__ == "__main__":
     reader = ChineseDatasetReader()
@@ -45,11 +49,11 @@ if __name__ == "__main__":
     validation_dataset = reader.read('raw_data/chinese/dev_data.json')
     test_dataset = reader.read('tests/fixtures/chinese_test_data.json')
 
-    vocab = Vocabulary.from_instances(train_dataset, min_count={'token': 10})
-    print('vocab_size: %d' % vocab.get_vocab_size())
-    
-    # vocab = Vocabulary.from_instances(validation_dataset)
-    # vocab = Vocabulary.from_instances(test_dataset)
+    # vocab = Vocabulary.from_instances(train_dataset, min_count={'token': 10})
+    # print('vocab_size: %d' % vocab.get_vocab_size())
+
+    # vocab = Vocabulary.from_instances(train_dataset)
+    vocab = Vocabulary.from_instances(train_dataset)
 
     config = Config()
 
@@ -66,13 +70,15 @@ if __name__ == "__main__":
     model = MultiHeadSelection(config, word_embeddings, lstm, vocab)
     # model = crf_tagger.CrfTagger(vocab=vocab, encoder=lstm, text_field_embedder=word_embeddings)
     if torch.cuda.is_available():
-        cuda_device = 0
+        cuda_device = 3
         model = model.cuda(cuda_device)
     else:
         cuda_device = -1
     optimizer = optim.Adam(model.parameters())
     iterator = BucketIterator(batch_size=200,
                               sorting_keys=[("tokens", "num_tokens")])
+                            #   max_instances_in_memory=8000,
+                            #   cache_instances=True)
     iterator.index_with(vocab)
 
     trainer = Trainer(model=model,
@@ -87,16 +93,17 @@ if __name__ == "__main__":
     trainer.train()
 
     # evaluation
-    sentence = "《网游之最强时代》是创世中文网连载的小说，作者是江山"
-    predictor = ChineseSentenceTaggerPredictor(model, dataset_reader=reader)
-    tags = predictor.predict("《网游之最强时代》是创世中文网连载的小说，作者是江山")['span_tags']
-    selection_triplet = predictor.predict("《网游之最强时代》是创世中文网连载的小说，作者是江山")['selection_triplets']
-    print('*' * 30)
-    # print(tags)
-    print(''.join(tags))
-    print(''.join([
-        'O', 'B', 'I', 'I', 'I', 'I', 'I', 'I', 'O', 'O', 'B', 'I', 'I', 'I',
-        'I', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'B', 'I'
-    ]))
+    # sentence = "《网游之最强时代》是创世中文网连载的小说，作者是江山"
+    # predictor = ChineseSentenceTaggerPredictor(model, dataset_reader=reader)
+    # tags = predictor.predict("《网游之最强时代》是创世中文网连载的小说，作者是江山")['span_tags']
+    # selection_triplet = predictor.predict(
+    #     "《网游之最强时代》是创世中文网连载的小说，作者是江山")['selection_triplets']
+    # print('*' * 30)
+    # # print(tags)
+    # print(''.join(tags))
+    # print(''.join([
+    #     'O', 'B', 'I', 'I', 'I', 'I', 'I', 'I', 'O', 'O', 'B', 'I', 'I', 'I',
+    #     'I', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'B', 'I'
+    # ]))
 
-    print(selection_triplet)
+    # print(selection_triplet)

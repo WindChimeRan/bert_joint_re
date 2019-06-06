@@ -5,4 +5,5 @@ raw_data
 tests/__pycache__
 lib/dataloader/__pycache__
 lib/models/__pycache__
+lib/metrics/__pycache__
 saved_models/*
