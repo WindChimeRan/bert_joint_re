@@ -14,4 +14,5 @@ if __name__ == "__main__":
         if relation not in relation_vocab:
             relation_vocab[relation] = i
             i += 1
+    relation_vocab['N'] = i
     json.dump(relation_vocab, open(relation_vocab_path, 'w'), ensure_ascii=False)

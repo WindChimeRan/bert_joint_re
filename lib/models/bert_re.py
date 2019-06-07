@@ -50,7 +50,6 @@ class MultiHeadSelection(Model):
         self.tagger = tagger(vocab=vocab,
                              encoder=self.encoder,
                              text_field_embedder=self.word_embeddings)
-        # self.relation_emb = torch.nn.Embedding(vocab.get_vocab_size('relations'), 200)
         self.relation_emb = Embedding(num_embeddings=config.relation_num,
                                       embedding_dim=50)
 
@@ -83,35 +82,17 @@ class MultiHeadSelection(Model):
             **kwargs) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
 
-        # print(tokens['tokens'].size())
-        # print(tags.size())
-        # print(selection.size())
-        # print(tokens['tokens'].type())
-        # exit()
-        # if type(tokens) == torch.Tensor:
-        #     tokens = {'tokens': tokens}
-
-
-        # frame = inspect.currentframe()          # define a frame to track
-        # gpu_tracker = MemTracker(frame)         # define a GPU tracker
-
         mask = get_text_field_mask(tokens)
         encoded_text = self.encoder(self.word_embeddings(tokens), mask)
 
         output = {}
 
-        # gpu_tracker.track()                     # run function between the code line where uses GPU
-
         if tags is not None:
             span_dict = self.tagger(tokens, tags)
             span_loss = span_dict['loss']
-            # output['loss'] = span_loss
         else:
             span_dict = self.tagger(tokens)
             span_loss = 0
-
-        # gpu_tracker.track()                     # run function between the code line where uses GPU
-
 
         # forward multi head selection
         u = torch.tanh(self.selection_u(encoded_text)).unsqueeze(1)
@@ -122,35 +103,22 @@ class MultiHeadSelection(Model):
         selection_logits = torch.einsum('bijh,rh->birj', uv,
                                         self.relation_emb.weight)
 
-        # gpu_tracker.track()                     # run function between the code line where uses GPU
-
-
         # if inference
         output = self.inference(tokens, span_dict, selection_logits, output)
         self.accuracy(output['selection_triplets'], spo_list)
-        # gpu_tracker.track()                     # run function between the code line where uses GPU
-
 
         selection_dict = {}
         if selection is not None:
             selection_loss = self.selection_loss(selection_logits, selection)
             selection_dict['loss'] = selection_loss
             output['loss'] = span_loss + selection_loss
-            # if 'loss' in output:
-            #     output['loss'] += selection_loss
-            # else:
-            #     output['loss'] = selection_loss
-        # gpu_tracker.track()                     # run function between the code line where uses GPU
-        # torch.cuda.empty_cache()
 
-        # gpu_tracker.track()
-        # exit()
         return output
 
     def selection_decode(self, tokens, sequence_tags,
                          selection_tags: torch.Tensor
                          ) -> List[List[Dict[str, str]]]:
-        selection_tags[0, 0, 1, 1] = 1
+        # selection_tags[0, 0, 1, 1] = 1
         # temp
 
         text = [[

@@ -119,15 +119,20 @@ class ChineseDatasetReader(DatasetReader):
         return True
 
     def spo_to_selection(self, text: str, spo_list: List[Dict[str, str]]) -> List[np.array]:
+        NA = self.relation_vocab['N']
         selection = np.zeros((len(text), len(self.relation_vocab), len(text)))
+        selection[:, NA, :] = 1
         for triplet in spo_list:
+            
             object = triplet['object']
             subject = triplet['subject']
+
             object_pos  = text.find(object) + len(object) - 1
             relation_pos = self.relation_vocab[triplet['predicate']]
             subject_pos = text.find(subject) + len(subject) - 1
 
             selection[object_pos, relation_pos, subject_pos] = 1
+            selection[object_pos, NA, subject_pos] = 0
 
         return selection
 
